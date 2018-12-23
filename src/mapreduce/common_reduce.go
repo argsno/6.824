@@ -1,12 +1,47 @@
 package mapreduce
 
+import (
+	"encoding/json"
+	"os"
+	"sort"
+)
+
 func doReduce(
 	jobName string, // the name of the whole MapReduce job
 	reduceTask int, // which reduce task this is
 	outFile string, // write the output here
-	nMap int, // the number of map tasks that were run ("M" in the paper)
+	nMap int,       // the number of map tasks that were run ("M" in the paper)
 	reduceF func(key string, values []string) string,
 ) {
+	var kvs []KeyValue
+	writer, _ := os.OpenFile(outFile, os.O_RDWR|os.O_CREATE, 0755)
+	for i := 0; i < nMap; i++ {
+		filename := reduceName(jobName, i, reduceTask)
+		reader, _ := os.OpenFile(filename, os.O_RDONLY, 0755)
+		enc := json.NewDecoder(reader)
+		var kv KeyValue
+		for {
+			err := enc.Decode(&kv)
+			kvs = append(kvs, kv)
+			if err != nil {
+				break
+			}
+		}
+	}
+	sort.Slice(kvs, func(i, j int) bool {
+		return kvs[i].Key < kvs[j].Key
+	})
+	m := make(map[string][]string)
+	for _, kv := range kvs {
+		m[kv.Key] = append(m[kv.Key], kv.Value)
+	}
+	enc := json.NewEncoder(writer)
+	for k, v := range m {
+		s := reduceF(k, v)
+		_ = enc.Encode(KeyValue{k, s})
+	}
+
+	_ = writer.Close()
 	//
 	// doReduce manages one reduce task: it should read the intermediate
 	// files for the task, sort the intermediate key/value pairs by key,
