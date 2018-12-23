@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"mapreduce"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 )
 
 //
@@ -14,6 +18,15 @@ import (
 // of key/value pairs.
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
+	reg, _ := regexp.Compile("[^a-zA-Z0-9]+")
+	contents = reg.ReplaceAllString(contents, " ")
+	scanner := bufio.NewScanner(strings.NewReader(contents))
+	scanner.Split(bufio.ScanWords)
+	kvs := make([]mapreduce.KeyValue, 0)
+	for scanner.Scan() {
+		kvs = append(kvs, mapreduce.KeyValue{Key: scanner.Text(), Value: "1"})
+	}
+	return kvs
 	// Your code here (Part II).
 }
 
@@ -23,6 +36,12 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
 // any map task.
 //
 func reduceF(key string, values []string) string {
+	sum := 0
+	for _, value := range values {
+		v, _ := strconv.Atoi(value)
+		sum += v
+	}
+	return strconv.Itoa(sum)
 	// Your code here (Part II).
 }
 
